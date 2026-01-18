@@ -1,0 +1,1647 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="description" content="Simple Mahjong Ledger - Track winnings and losses in real time">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Mahjong Ledger</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        :root {
+            --bg-primary: #0f0f0f;
+            --bg-secondary: #1a1a1a;
+            --bg-card: #1e1e1e;
+            --bg-hover: #2a2a2a;
+            --text-primary: #ffffff;
+            --text-secondary: #a0a0a0;
+            --green: #4ade80;
+            --green-dark: #22c55e;
+            --red: #f87171;
+            --red-dark: #ef4444;
+            --gray: #6b7280;
+            --accent: #3b82f6;
+            --accent-dark: #2563eb;
+            --border: #2a2a2a;
+            --shadow: rgba(0, 0, 0, 0.3);
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            padding: 0;
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            line-height: 1.5;
+            overflow-x: hidden;
+        }
+
+        .header {
+            background: var(--bg-secondary);
+            padding: 1rem 1.25rem;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 2px 8px var(--shadow);
+        }
+
+        .header h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        button {
+            background: var(--bg-card);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            touch-action: manipulation;
+            min-height: 40px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        button:hover:not(:disabled) {
+            background: var(--bg-hover);
+            border-color: var(--accent);
+            transform: translateY(-1px);
+        }
+
+        button:active:not(:disabled) {
+            transform: scale(0.98);
+        }
+
+        button:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        button.danger {
+            color: var(--red);
+            border-color: var(--red);
+        }
+
+        button.danger:hover:not(:disabled) {
+            background: rgba(248, 113, 113, 0.1);
+        }
+
+        .main-content {
+            flex: 1;
+            padding: 1.25rem;
+            overflow-y: auto;
+            max-width: 1200px;
+            margin: 0 auto;
+            width: 100%;
+            padding-bottom: 100px;
+        }
+
+        .error-message {
+            background: rgba(248, 113, 113, 0.15);
+            border: 1px solid var(--red);
+            color: var(--red);
+            padding: 0.875rem 1rem;
+            border-radius: 8px;
+            margin-bottom: 1.25rem;
+            display: none;
+            font-size: 0.9rem;
+            animation: slideDown 0.3s ease;
+        }
+
+        .error-message.show {
+            display: block;
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes slideUp {
+            from {
+                transform: translateY(100%);
+            }
+            to {
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+
+        .player-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            padding: 1rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            box-shadow: 0 2px 8px var(--shadow);
+        }
+
+        .player-controls-info {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .player-controls-buttons {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .player-controls-buttons button {
+            min-width: 44px;
+            padding: 0.5rem;
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+
+        .players-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .player-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.25rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 8px var(--shadow);
+            position: relative;
+        }
+
+        .player-card:hover {
+            border-color: var(--accent);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px var(--shadow);
+        }
+
+        .player-name-container {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .player-name {
+            font-size: 0.95rem;
+            color: var(--text-primary);
+            border: 2px solid transparent;
+            background: transparent;
+            padding: 0.5rem;
+            border-radius: 6px;
+            width: 100%;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+
+        .player-name:focus {
+            outline: none;
+            border-color: var(--accent);
+            background: var(--bg-secondary);
+        }
+
+        .player-name:not(:focus) {
+            cursor: pointer;
+        }
+
+        .edit-icon {
+            opacity: 0;
+            transition: opacity 0.2s ease;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            cursor: pointer;
+            padding: 0.25rem;
+        }
+
+        .player-name-container:hover .edit-icon {
+            opacity: 1;
+        }
+
+        .player-balance {
+            font-size: 2rem;
+            font-weight: 700;
+            margin: 0.25rem 0;
+            letter-spacing: -1px;
+        }
+
+        .player-balance.positive {
+            color: var(--green);
+        }
+
+        .player-balance.negative {
+            color: var(--red);
+        }
+
+        .player-balance.zero {
+            color: var(--gray);
+        }
+
+        .balance-bar {
+            height: 6px;
+            background: var(--bg-secondary);
+            border-radius: 3px;
+            overflow: hidden;
+            margin-top: 0.5rem;
+        }
+
+        .balance-bar-fill {
+            height: 100%;
+            transition: width 0.4s ease;
+            border-radius: 3px;
+        }
+
+        .balance-bar-fill.positive {
+            background: linear-gradient(90deg, var(--green), var(--green-dark));
+        }
+
+        .balance-bar-fill.negative {
+            background: linear-gradient(90deg, var(--red), var(--red-dark));
+        }
+
+        /* Desktop Transaction Panel */
+        .transaction-panel {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 2px 8px var(--shadow);
+        }
+
+        .transaction-panel h2 {
+            font-size: 1.25rem;
+            margin-bottom: 1.5rem;
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+
+        .transaction-flow {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .flow-step {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .flow-step-label {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .flow-step-content {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 0.75rem;
+        }
+
+        .flow-player-btn {
+            padding: 1rem;
+            font-size: 1rem;
+            min-height: 60px;
+            border-radius: 10px;
+            font-weight: 500;
+            position: relative;
+            transition: all 0.2s ease;
+            border: 2px solid var(--border);
+        }
+
+        .flow-player-btn:hover:not(.selected):not(:disabled) {
+            border-color: var(--accent);
+            background: var(--bg-hover);
+            transform: translateY(-2px);
+        }
+
+        .flow-player-btn.selected {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: white;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+        }
+
+        .flow-arrow {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: var(--text-secondary);
+            font-size: 1.5rem;
+            margin: -0.5rem 0;
+        }
+
+        .amount-section {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .amount-input-wrapper {
+            position: relative;
+        }
+
+        .amount-input {
+            background: var(--bg-secondary);
+            border: 2px solid var(--border);
+            color: var(--text-primary);
+            padding: 1.25rem;
+            border-radius: 10px;
+            font-size: 1.5rem;
+            text-align: center;
+            min-height: 70px;
+            font-weight: 600;
+            transition: all 0.2s ease;
+            width: 100%;
+        }
+
+        .amount-input:focus {
+            outline: none;
+            border-color: var(--accent);
+            background: var(--bg-card);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        .amount-input::placeholder {
+            color: var(--text-secondary);
+            opacity: 0.5;
+        }
+
+        .currency-label {
+            position: absolute;
+            left: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-secondary);
+            font-size: 1.2rem;
+            font-weight: 600;
+            pointer-events: none;
+        }
+
+        .add-btn {
+            background: linear-gradient(135deg, var(--green), var(--green-dark));
+            border: none;
+            padding: 1.25rem;
+            font-size: 1.1rem;
+            font-weight: 600;
+            min-height: 64px;
+            color: white;
+            box-shadow: 0 4px 12px rgba(74, 222, 128, 0.3);
+            transition: all 0.2s ease;
+        }
+
+        .add-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(74, 222, 128, 0.4);
+        }
+
+        .add-btn:active:not(:disabled) {
+            transform: translateY(0);
+        }
+
+        .transaction-preview {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-top: 0.5rem;
+            display: none;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+
+        .transaction-preview.show {
+            display: block;
+            animation: slideDown 0.3s ease;
+        }
+
+        .transaction-preview strong {
+            color: var(--text-primary);
+        }
+
+        /* Mobile Floating Action Button */
+        .fab {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--green), var(--green-dark));
+            border: none;
+            color: white;
+            font-size: 2rem;
+            box-shadow: 0 8px 24px rgba(74, 222, 128, 0.4);
+            cursor: pointer;
+            z-index: 1000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            touch-action: manipulation;
+        }
+
+        .fab:active {
+            transform: scale(0.9);
+        }
+
+        /* Mobile Bottom Sheet */
+        .bottom-sheet {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: var(--bg-card);
+            border-radius: 24px 24px 0 0;
+            box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.5);
+            z-index: 2000;
+            max-height: 90vh;
+            display: none;
+            flex-direction: column;
+            transform: translateY(100%);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .bottom-sheet.show {
+            display: flex;
+            transform: translateY(0);
+            animation: slideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .bottom-sheet-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1999;
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .bottom-sheet-overlay.show {
+            display: block;
+        }
+
+        .bottom-sheet-header {
+            padding: 1.5rem 1.5rem 1rem;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .bottom-sheet-header h2 {
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+
+        .bottom-sheet-close {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--bg-secondary);
+            border: none;
+            color: var(--text-primary);
+            font-size: 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            touch-action: manipulation;
+        }
+
+        .bottom-sheet-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1.5rem;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .bottom-sheet-drag-handle {
+            width: 40px;
+            height: 4px;
+            background: var(--text-secondary);
+            border-radius: 2px;
+            margin: 0.5rem auto;
+            opacity: 0.5;
+        }
+
+        .mobile-flow-step {
+            margin-bottom: 2rem;
+        }
+
+        .mobile-flow-label {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            font-weight: 600;
+            margin-bottom: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .mobile-player-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.75rem;
+        }
+
+        .mobile-player-btn {
+            padding: 1.25rem;
+            font-size: 1rem;
+            min-height: 70px;
+            border-radius: 12px;
+            font-weight: 500;
+            border: 2px solid var(--border);
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            transition: all 0.2s ease;
+            touch-action: manipulation;
+        }
+
+        .mobile-player-btn:active {
+            transform: scale(0.98);
+        }
+
+        .mobile-player-btn.selected {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: white;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+        }
+
+        .mobile-amount-input {
+            background: var(--bg-secondary);
+            border: 2px solid var(--border);
+            color: var(--text-primary);
+            padding: 1.5rem;
+            border-radius: 12px;
+            font-size: 2rem;
+            text-align: center;
+            min-height: 80px;
+            font-weight: 600;
+            width: 100%;
+            transition: all 0.2s ease;
+        }
+
+        .mobile-amount-input:focus {
+            outline: none;
+            border-color: var(--accent);
+            background: var(--bg-card);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        .mobile-add-btn {
+            background: linear-gradient(135deg, var(--green), var(--green-dark));
+            border: none;
+            padding: 1.5rem;
+            font-size: 1.2rem;
+            font-weight: 700;
+            min-height: 70px;
+            color: white;
+            box-shadow: 0 4px 12px rgba(74, 222, 128, 0.3);
+            width: 100%;
+            border-radius: 12px;
+            margin-top: 1rem;
+            touch-action: manipulation;
+        }
+
+        .mobile-add-btn:active:not(:disabled) {
+            transform: scale(0.98);
+        }
+
+        .section {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.25rem;
+            margin-top: 1.5rem;
+            box-shadow: 0 2px 8px var(--shadow);
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            cursor: pointer;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .section-header h2 {
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+
+        .section-toggle {
+            color: var(--text-secondary);
+            font-size: 1rem;
+            transition: transform 0.2s ease;
+        }
+
+        .section-content {
+            display: none;
+        }
+
+        .section-content.show {
+            display: block;
+            animation: slideDown 0.3s ease;
+        }
+
+        .settlement-list,
+        .transaction-log-list {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .settlement-item {
+            padding: 1rem;
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            font-size: 1rem;
+            border-left: 4px solid var(--accent);
+        }
+
+        .settlement-empty,
+        .transaction-log-empty {
+            color: var(--text-secondary);
+            text-align: center;
+            padding: 2rem 1rem;
+            font-size: 0.9rem;
+        }
+
+        .transaction-log-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem;
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            font-size: 0.9rem;
+            gap: 1rem;
+        }
+
+        .transaction-log-item-info {
+            flex: 1;
+            color: var(--text-secondary);
+        }
+
+        .transaction-log-item-info strong {
+            color: var(--text-primary);
+        }
+
+        .transaction-log-item-delete {
+            background: var(--red);
+            border-color: var(--red);
+            color: white;
+            padding: 0.5rem 1rem;
+            font-size: 0.85rem;
+            min-height: auto;
+            touch-action: manipulation;
+        }
+
+        .transaction-log-item-delete:hover {
+            background: var(--red-dark);
+        }
+
+        /* Mobile-specific styles */
+        @media (max-width: 768px) {
+            .transaction-panel {
+                display: none;
+            }
+
+            .fab {
+                display: flex;
+            }
+
+            .main-content {
+                padding: 1rem;
+                padding-bottom: 120px;
+            }
+
+            .players-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 0.75rem;
+            }
+
+            .player-card {
+                padding: 1rem;
+            }
+
+            .player-balance {
+                font-size: 1.75rem;
+            }
+
+            .header {
+                padding: 1rem;
+            }
+
+            .header h1 {
+                font-size: 1.25rem;
+            }
+
+            .header-actions {
+                gap: 0.25rem;
+            }
+
+            .header-actions button {
+                padding: 0.5rem;
+                font-size: 0.75rem;
+                min-width: auto;
+            }
+
+            .player-controls {
+                padding: 0.875rem;
+            }
+
+            .player-controls-info {
+                font-size: 0.85rem;
+            }
+
+            .edit-icon {
+                opacity: 1;
+            }
+
+            .section {
+                padding: 1rem;
+            }
+
+            .transaction-log-item {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0.75rem;
+            }
+
+            .transaction-log-item-delete {
+                align-self: stretch;
+                width: 100%;
+            }
+        }
+
+        @media (min-width: 769px) {
+            .fab,
+            .bottom-sheet,
+            .bottom-sheet-overlay {
+                display: none !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🀄 Mahjong Ledger</h1>
+        <div class="header-actions">
+            <button onclick="exportData()" title="Export Data">💾 Export</button>
+            <button onclick="importData()" title="Import Data">📥 Import</button>
+            <button class="danger" onclick="resetGame()" title="Reset Game">🔄 Reset</button>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <div class="error-message" id="errorMessage"></div>
+
+        <div class="player-controls">
+            <div class="player-controls-info">
+                Players: <span id="playerCount">4</span> (3-4 allowed)
+            </div>
+            <div class="player-controls-buttons">
+                <button onclick="addPlayer()" id="addPlayerBtn" title="Add Player">+</button>
+                <button onclick="removePlayer()" id="removePlayerBtn" title="Remove Player" class="danger">−</button>
+            </div>
+        </div>
+
+        <div class="players-grid" id="playersGrid"></div>
+
+        <!-- Desktop Transaction Panel -->
+        <div class="transaction-panel">
+            <h2>💰 Add Payment</h2>
+            <div class="transaction-flow">
+                <div class="flow-step">
+                    <div class="flow-step-label">Step 1: Who Paid?</div>
+                    <div class="flow-step-content" id="fromButtons"></div>
+                </div>
+
+                <div class="flow-arrow">↓</div>
+
+                <div class="flow-step">
+                    <div class="flow-step-label">Step 2: Who Received?</div>
+                    <div class="flow-step-content" id="toButtons"></div>
+                </div>
+
+                <div class="flow-arrow">↓</div>
+
+                <div class="amount-section">
+                    <div class="flow-step-label">Step 3: How Much? (RM)</div>
+                    <div class="amount-input-wrapper">
+                        <span class="currency-label">RM</span>
+                        <input type="number" 
+                               class="amount-input" 
+                               id="amountInput" 
+                               placeholder="0.00" 
+                               step="0.01" 
+                               min="0.01">
+                    </div>
+                    <div class="transaction-preview" id="transactionPreview"></div>
+                </div>
+
+                <button class="add-btn" id="addBtn" onclick="addTransaction()">
+                    ✓ Add Payment
+                </button>
+            </div>
+        </div>
+
+        <div class="section transaction-log-section">
+            <div class="section-header" onclick="toggleTransactionLog()">
+                <h2>📋 Transaction History</h2>
+                <span class="section-toggle" id="transactionLogToggle">▼</span>
+            </div>
+            <div class="section-content" id="transactionLogContent">
+                <ul class="transaction-log-list" id="transactionLogList"></ul>
+            </div>
+        </div>
+
+        <div class="section settlement-section">
+            <div class="section-header" onclick="toggleSettlement()">
+                <h2>💵 Settlement</h2>
+                <span class="section-toggle" id="settlementToggle">▼</span>
+            </div>
+            <div class="section-content" id="settlementContent">
+                <ul class="settlement-list" id="settlementList"></ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mobile Floating Action Button -->
+    <button class="fab" id="fab" onclick="openMobileTransaction()" aria-label="Add Payment">
+        +
+    </button>
+
+    <!-- Mobile Bottom Sheet -->
+    <div class="bottom-sheet-overlay" id="bottomSheetOverlay" onclick="closeMobileTransaction()"></div>
+    <div class="bottom-sheet" id="bottomSheet">
+        <div class="bottom-sheet-drag-handle"></div>
+        <div class="bottom-sheet-header">
+            <h2>💰 Add Payment</h2>
+            <button class="bottom-sheet-close" onclick="closeMobileTransaction()">×</button>
+        </div>
+        <div class="bottom-sheet-content">
+            <div class="mobile-flow-step">
+                <div class="mobile-flow-label">Step 1: Who Paid?</div>
+                <div class="mobile-player-grid" id="mobileFromButtons"></div>
+            </div>
+
+            <div class="mobile-flow-step">
+                <div class="mobile-flow-label">Step 2: Who Received?</div>
+                <div class="mobile-player-grid" id="mobileToButtons"></div>
+            </div>
+
+            <div class="mobile-flow-step">
+                <div class="mobile-flow-label">Step 3: How Much? (RM)</div>
+                <input type="number" 
+                       class="mobile-amount-input" 
+                       id="mobileAmountInput" 
+                       placeholder="0.00" 
+                       step="0.01" 
+                       min="0.01"
+                       inputmode="decimal">
+                <div class="transaction-preview" id="mobileTransactionPreview"></div>
+            </div>
+
+            <button class="mobile-add-btn" id="mobileAddBtn" onclick="addTransactionMobile()">
+                ✓ Add Payment
+            </button>
+        </div>
+    </div>
+
+    <input type="file" id="importFile" style="display: none;" accept=".json,.txt" onchange="handleFileImport(event)">
+
+    <script>
+        // State management
+        let players = [];
+        let selectedFrom = null;
+        let selectedTo = null;
+        let transactions = [];
+        let nextPlayerId = 1;
+        let editingPlayerId = null;
+        let isMobile = window.innerWidth <= 768;
+
+        // Mobile detection
+        function checkMobile() {
+            isMobile = window.innerWidth <= 768;
+        }
+
+        window.addEventListener('resize', checkMobile);
+
+        // Initialize app
+        function init() {
+            loadFromStorage();
+            if (players.length === 0) {
+                createDefaultPlayers();
+            } else {
+                nextPlayerId = Math.max(...players.map(p => p.id), 0) + 1;
+            }
+            updatePlayerControls();
+            renderPlayers();
+            renderTransactionButtons();
+            updateSettlement();
+            renderTransactionLog();
+            updateTransactionPreview();
+        }
+
+        // Player management
+        function createDefaultPlayers() {
+            players = [
+                { id: 1, name: 'Player Name (player 1)', balance: 0 },
+                { id: 2, name: 'Player Name (player 2)', balance: 0 },
+                { id: 3, name: 'Player Name (player 3)', balance: 0 },
+                { id: 4, name: 'Player Name (player 4)', balance: 0 }
+            ];
+            nextPlayerId = 5;
+            saveToStorage();
+        }
+
+        function addPlayer() {
+            if (players.length >= 4) {
+                showError('Maximum 4 players allowed');
+                return;
+            }
+            
+            const newPlayer = {
+                id: nextPlayerId++,
+                name: `Player Name (player ${players.length + 1})`,
+                balance: 0
+            };
+            players.push(newPlayer);
+            updatePlayerControls();
+            renderPlayers();
+            renderTransactionButtons();
+            saveToStorage();
+            hideError();
+        }
+
+        function removePlayer() {
+            if (players.length <= 3) {
+                showError('Minimum 3 players required');
+                return;
+            }
+
+            const removedPlayer = players.pop();
+            transactions = transactions.filter(t => 
+                t.from !== removedPlayer.id && t.to !== removedPlayer.id
+            );
+
+            resetBalances();
+            recalculateBalancesFromTransactions();
+
+            if (selectedFrom === removedPlayer.id) selectedFrom = null;
+            if (selectedTo === removedPlayer.id) selectedTo = null;
+
+            updatePlayerControls();
+            renderPlayers();
+            renderTransactionButtons();
+            updateSettlement();
+            renderTransactionLog();
+            updateTransactionPreview();
+            saveToStorage();
+            hideError();
+        }
+
+        function resetBalances() {
+            players.forEach(p => p.balance = 0);
+        }
+
+        function recalculateBalancesFromTransactions() {
+            resetBalances();
+            transactions.forEach(t => {
+                const fromPlayer = players.find(p => p.id === t.from);
+                const toPlayer = players.find(p => p.id === t.to);
+                if (fromPlayer && toPlayer) {
+                    fromPlayer.balance -= t.amount;
+                    toPlayer.balance += t.amount;
+                }
+            });
+        }
+
+        function updatePlayerControls() {
+            const count = players.length;
+            document.getElementById('playerCount').textContent = count;
+            document.getElementById('addPlayerBtn').disabled = count >= 4;
+            document.getElementById('removePlayerBtn').disabled = count <= 3;
+        }
+
+        function renderPlayers() {
+            const grid = document.getElementById('playersGrid');
+            grid.innerHTML = '';
+
+            const maxBalance = Math.max(...players.map(p => Math.abs(p.balance)), 1);
+
+            players.forEach(player => {
+                const card = document.createElement('div');
+                card.className = 'player-card';
+
+                const nameContainer = document.createElement('div');
+                nameContainer.className = 'player-name-container';
+
+                const nameInput = document.createElement('input');
+                nameInput.type = 'text';
+                nameInput.className = 'player-name';
+                nameInput.value = player.name;
+                nameInput.placeholder = 'Tap to edit name';
+                nameInput.onfocus = () => {
+                    editingPlayerId = player.id;
+                    nameInput.select();
+                };
+                nameInput.onblur = () => {
+                    updatePlayerName(player.id, nameInput.value);
+                    editingPlayerId = null;
+                };
+                nameInput.onkeypress = (e) => {
+                    if (e.key === 'Enter') {
+                        nameInput.blur();
+                    }
+                };
+
+                const editIcon = document.createElement('span');
+                editIcon.className = 'edit-icon';
+                editIcon.textContent = '✏️';
+                editIcon.onclick = () => nameInput.focus();
+
+                nameContainer.appendChild(nameInput);
+                nameContainer.appendChild(editIcon);
+
+                const balance = document.createElement('div');
+                balance.className = 'player-balance';
+                const balanceValue = player.balance.toFixed(2);
+                if (player.balance > 0) {
+                    balance.className += ' positive';
+                    balance.textContent = `+RM ${balanceValue}`;
+                } else if (player.balance < 0) {
+                    balance.className += ' negative';
+                    balance.textContent = `-RM ${Math.abs(balanceValue)}`;
+                } else {
+                    balance.className += ' zero';
+                    balance.textContent = `RM ${balanceValue}`;
+                }
+
+                const barContainer = document.createElement('div');
+                barContainer.className = 'balance-bar';
+                const barFill = document.createElement('div');
+                barFill.className = 'balance-bar-fill';
+                if (player.balance > 0) {
+                    barFill.className += ' positive';
+                    barFill.style.width = `${(player.balance / maxBalance) * 100}%`;
+                } else if (player.balance < 0) {
+                    barFill.className += ' negative';
+                    barFill.style.width = `${(Math.abs(player.balance) / maxBalance) * 100}%`;
+                } else {
+                    barFill.style.width = '0%';
+                }
+                barContainer.appendChild(barFill);
+
+                card.appendChild(nameContainer);
+                card.appendChild(balance);
+                card.appendChild(barContainer);
+                grid.appendChild(card);
+            });
+        }
+
+        function updatePlayerName(playerId, newName) {
+            const player = players.find(p => p.id === playerId);
+            if (player && newName.trim()) {
+                player.name = newName.trim();
+                saveToStorage();
+                renderPlayers();
+                renderTransactionButtons();
+            }
+        }
+
+        // Transaction management
+        function renderTransactionButtons() {
+            const fromButtons = document.getElementById('fromButtons');
+            const toButtons = document.getElementById('toButtons');
+            const mobileFromButtons = document.getElementById('mobileFromButtons');
+            const mobileToButtons = document.getElementById('mobileToButtons');
+            
+            fromButtons.innerHTML = '';
+            toButtons.innerHTML = '';
+            if (mobileFromButtons) mobileFromButtons.innerHTML = '';
+            if (mobileToButtons) mobileToButtons.innerHTML = '';
+
+            players.forEach(player => {
+                // Desktop buttons
+                const fromBtn = createPlayerButton(player, 'from');
+                const toBtn = createPlayerButton(player, 'to');
+                fromButtons.appendChild(fromBtn);
+                toButtons.appendChild(toBtn);
+
+                // Mobile buttons
+                if (mobileFromButtons && mobileToButtons) {
+                    const mobileFromBtn = createMobilePlayerButton(player, 'from');
+                    const mobileToBtn = createMobilePlayerButton(player, 'to');
+                    mobileFromButtons.appendChild(mobileFromBtn);
+                    mobileToButtons.appendChild(mobileToBtn);
+                }
+            });
+        }
+
+        function createPlayerButton(player, type) {
+            const btn = document.createElement('button');
+            btn.className = 'flow-player-btn';
+            btn.textContent = player.name;
+            const isSelected = (type === 'from' && selectedFrom === player.id) || 
+                             (type === 'to' && selectedTo === player.id);
+            if (isSelected) {
+                btn.classList.add('selected');
+            }
+            btn.onclick = () => {
+                if (type === 'from') selectFrom(player.id);
+                else selectTo(player.id);
+            };
+            return btn;
+        }
+
+        function createMobilePlayerButton(player, type) {
+            const btn = document.createElement('button');
+            btn.className = 'mobile-player-btn';
+            btn.textContent = player.name;
+            const isSelected = (type === 'from' && selectedFrom === player.id) || 
+                             (type === 'to' && selectedTo === player.id);
+            if (isSelected) {
+                btn.classList.add('selected');
+            }
+            btn.onclick = () => {
+                if (type === 'from') selectFrom(player.id);
+                else selectTo(player.id);
+            };
+            return btn;
+        }
+
+        function selectFrom(playerId) {
+            selectedFrom = playerId;
+            if (selectedTo === playerId) {
+                selectedTo = null;
+            }
+            renderTransactionButtons();
+            updateAddButton();
+            updateTransactionPreview();
+        }
+
+        function selectTo(playerId) {
+            selectedTo = playerId;
+            if (selectedFrom === playerId) {
+                selectedFrom = null;
+            }
+            renderTransactionButtons();
+            updateAddButton();
+            updateTransactionPreview();
+        }
+
+        function updateTransactionPreview() {
+            const preview = document.getElementById('transactionPreview');
+            const mobilePreview = document.getElementById('mobileTransactionPreview');
+            const amount = parseFloat(document.getElementById('amountInput')?.value || 
+                                    document.getElementById('mobileAmountInput')?.value || 0);
+            
+            const previewText = selectedFrom && selectedTo && amount && amount > 0
+                ? (() => {
+                    const fromPlayer = players.find(p => p.id === selectedFrom);
+                    const toPlayer = players.find(p => p.id === selectedTo);
+                    return `<strong>${fromPlayer.name}</strong> will pay <strong>${toPlayer.name}</strong> <strong>RM ${amount.toFixed(2)}</strong>`;
+                })()
+                : null;
+
+            if (preview) {
+                if (previewText) {
+                    preview.innerHTML = previewText;
+                    preview.classList.add('show');
+                } else {
+                    preview.classList.remove('show');
+                }
+            }
+
+            if (mobilePreview) {
+                if (previewText) {
+                    mobilePreview.innerHTML = previewText;
+                    mobilePreview.classList.add('show');
+                } else {
+                    mobilePreview.classList.remove('show');
+                }
+            }
+        }
+
+        function updateAddButton() {
+            const addBtn = document.getElementById('addBtn');
+            const mobileAddBtn = document.getElementById('mobileAddBtn');
+            const amount = parseFloat(document.getElementById('amountInput')?.value || 
+                                    document.getElementById('mobileAmountInput')?.value || 0);
+            const disabled = !selectedFrom || !selectedTo || !amount || amount <= 0;
+            
+            if (addBtn) addBtn.disabled = disabled;
+            if (mobileAddBtn) mobileAddBtn.disabled = disabled;
+        }
+
+        function addTransaction() {
+            const amount = parseFloat(document.getElementById('amountInput').value);
+            processTransaction(amount);
+        }
+
+        function addTransactionMobile() {
+            const amount = parseFloat(document.getElementById('mobileAmountInput').value);
+            processTransaction(amount);
+        }
+
+        function processTransaction(amount) {
+            if (!selectedFrom || !selectedTo) {
+                showError('Please select both players');
+                return;
+            }
+
+            if (selectedFrom === selectedTo) {
+                showError('Players must be different');
+                return;
+            }
+
+            if (!amount || amount <= 0) {
+                showError('Please enter a valid amount');
+                return;
+            }
+
+            const fromPlayer = players.find(p => p.id === selectedFrom);
+            const toPlayer = players.find(p => p.id === selectedTo);
+
+            fromPlayer.balance -= amount;
+            toPlayer.balance += amount;
+
+            transactions.push({
+                id: Date.now(),
+                from: fromPlayer.id,
+                to: toPlayer.id,
+                amount: amount,
+                timestamp: new Date().toISOString()
+            });
+
+            selectedFrom = null;
+            selectedTo = null;
+            if (document.getElementById('amountInput')) document.getElementById('amountInput').value = '';
+            if (document.getElementById('mobileAmountInput')) document.getElementById('mobileAmountInput').value = '';
+            renderTransactionButtons();
+            updateAddButton();
+            updateTransactionPreview();
+            renderPlayers();
+            updateSettlement();
+            renderTransactionLog();
+            saveToStorage();
+            hideError();
+            
+            if (isMobile) {
+                closeMobileTransaction();
+            }
+        }
+
+        // Mobile bottom sheet functions
+        function openMobileTransaction() {
+            document.getElementById('bottomSheet').classList.add('show');
+            document.getElementById('bottomSheetOverlay').classList.add('show');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeMobileTransaction() {
+            document.getElementById('bottomSheet').classList.remove('show');
+            document.getElementById('bottomSheetOverlay').classList.remove('show');
+            document.body.style.overflow = '';
+        }
+
+        // Settlement calculation
+        function calculateSettlement() {
+            const settlements = [];
+            const balances = players.map(p => ({ id: p.id, name: p.name, balance: p.balance }));
+
+            balances.sort((a, b) => a.balance - b.balance);
+
+            let i = 0;
+            let j = balances.length - 1;
+
+            while (i < j && balances[i].balance < 0 && balances[j].balance > 0) {
+                const debt = Math.abs(balances[i].balance);
+                const credit = balances[j].balance;
+                const amount = Math.min(debt, credit);
+
+                if (amount > 0.01) {
+                    settlements.push({
+                        from: balances[i].name,
+                        to: balances[j].name,
+                        amount: parseFloat(amount.toFixed(2))
+                    });
+                }
+
+                balances[i].balance += amount;
+                balances[j].balance -= amount;
+
+                if (Math.abs(balances[i].balance) < 0.01) i++;
+                if (Math.abs(balances[j].balance) < 0.01) j--;
+            }
+
+            return settlements;
+        }
+
+        function updateSettlement() {
+            const settlementList = document.getElementById('settlementList');
+            const settlements = calculateSettlement();
+            
+            settlementList.innerHTML = '';
+
+            if (settlements.length === 0) {
+                const empty = document.createElement('li');
+                empty.className = 'settlement-empty';
+                empty.textContent = 'All balances are settled ✓';
+                settlementList.appendChild(empty);
+            } else {
+                settlements.forEach(settlement => {
+                    const item = document.createElement('li');
+                    item.className = 'settlement-item';
+                    item.textContent = `${settlement.from} → ${settlement.to} : RM ${settlement.amount.toFixed(2)}`;
+                    settlementList.appendChild(item);
+                });
+            }
+        }
+
+        function toggleSettlement() {
+            const content = document.getElementById('settlementContent');
+            const toggle = document.getElementById('settlementToggle');
+            content.classList.toggle('show');
+            toggle.textContent = content.classList.contains('show') ? '▲' : '▼';
+        }
+
+        // Transaction log
+        function renderTransactionLog() {
+            const logList = document.getElementById('transactionLogList');
+            logList.innerHTML = '';
+
+            if (transactions.length === 0) {
+                const empty = document.createElement('li');
+                empty.className = 'transaction-log-empty';
+                empty.textContent = 'No transactions yet';
+                logList.appendChild(empty);
+            } else {
+                [...transactions].reverse().forEach(transaction => {
+                    const fromPlayer = players.find(p => p.id === transaction.from);
+                    const toPlayer = players.find(p => p.id === transaction.to);
+                    
+                    if (!fromPlayer || !toPlayer) return;
+
+                    const item = document.createElement('li');
+                    item.className = 'transaction-log-item';
+
+                    const info = document.createElement('div');
+                    info.className = 'transaction-log-item-info';
+                    const date = new Date(transaction.timestamp);
+                    const timeStr = date.toLocaleTimeString('en-US', { 
+                        hour: '2-digit', 
+                        minute: '2-digit' 
+                    });
+                    info.innerHTML = `<strong>${fromPlayer.name}</strong> → <strong>${toPlayer.name}</strong> : RM ${transaction.amount.toFixed(2)} <span style="color: var(--text-secondary);">(${timeStr})</span>`;
+
+                    const deleteBtn = document.createElement('button');
+                    deleteBtn.className = 'transaction-log-item-delete';
+                    deleteBtn.textContent = 'Delete';
+                    deleteBtn.onclick = () => deleteTransaction(transaction.id);
+
+                    item.appendChild(info);
+                    item.appendChild(deleteBtn);
+                    logList.appendChild(item);
+                });
+            }
+        }
+
+        function deleteTransaction(transactionId) {
+            const transaction = transactions.find(t => t.id === transactionId);
+            if (!transaction) return;
+
+            if (!confirm('Delete this transaction? This will reverse the balance changes.')) {
+                return;
+            }
+
+            const fromPlayer = players.find(p => p.id === transaction.from);
+            const toPlayer = players.find(p => p.id === transaction.to);
+
+            if (fromPlayer && toPlayer) {
+                fromPlayer.balance += transaction.amount;
+                toPlayer.balance -= transaction.amount;
+            }
+
+            transactions = transactions.filter(t => t.id !== transactionId);
+
+            renderPlayers();
+            updateSettlement();
+            renderTransactionLog();
+            saveToStorage();
+        }
+
+        function toggleTransactionLog() {
+            const content = document.getElementById('transactionLogContent');
+            const toggle = document.getElementById('transactionLogToggle');
+            content.classList.toggle('show');
+            toggle.textContent = content.classList.contains('show') ? '▲' : '▼';
+        }
+
+        // Error handling
+        function showError(message) {
+            const errorDiv = document.getElementById('errorMessage');
+            errorDiv.textContent = message;
+            errorDiv.classList.add('show');
+            setTimeout(hideError, 5000);
+        }
+
+        function hideError() {
+            const errorDiv = document.getElementById('errorMessage');
+            errorDiv.classList.remove('show');
+        }
+
+        // Storage
+        function saveToStorage() {
+            const data = {
+                players: players,
+                transactions: transactions,
+                version: '1.0'
+            };
+            localStorage.setItem('mahjongLedger', JSON.stringify(data));
+        }
+
+        function loadFromStorage() {
+            const stored = localStorage.getItem('mahjongLedger');
+            if (stored) {
+                try {
+                    const data = JSON.parse(stored);
+                    players = data.players || [];
+                    transactions = data.transactions || [];
+                    resetBalances();
+                    recalculateBalancesFromTransactions();
+                } catch (e) {
+                    console.error('Failed to load data:', e);
+                    createDefaultPlayers();
+                }
+            }
+        }
+
+        // Export/Import
+        function exportData() {
+            const data = {
+                players: players,
+                transactions: transactions,
+                exportDate: new Date().toISOString()
+            };
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `mahjong-ledger-${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function importData() {
+            document.getElementById('importFile').click();
+        }
+
+        function handleFileImport(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    if (data.players && Array.isArray(data.players)) {
+                        players = data.players;
+                        transactions = data.transactions || [];
+                        resetBalances();
+                        recalculateBalancesFromTransactions();
+                        nextPlayerId = Math.max(...players.map(p => p.id), 0) + 1;
+                        updatePlayerControls();
+                        saveToStorage();
+                        renderPlayers();
+                        renderTransactionButtons();
+                        updateSettlement();
+                        renderTransactionLog();
+                        updateTransactionPreview();
+                        hideError();
+                        alert('Data imported successfully!');
+                    } else {
+                        showError('Invalid file format');
+                    }
+                } catch (err) {
+                    showError('Failed to import file: ' + err.message);
+                }
+            };
+            reader.readAsText(file);
+            event.target.value = '';
+        }
+
+        function resetGame() {
+            if (confirm('Are you sure you want to reset? All data will be lost.')) {
+                players = [];
+                transactions = [];
+                selectedFrom = null;
+                selectedTo = null;
+                nextPlayerId = 1;
+                if (document.getElementById('amountInput')) document.getElementById('amountInput').value = '';
+                if (document.getElementById('mobileAmountInput')) document.getElementById('mobileAmountInput').value = '';
+                createDefaultPlayers();
+                updatePlayerControls();
+                renderPlayers();
+                renderTransactionButtons();
+                updateSettlement();
+                renderTransactionLog();
+                updateTransactionPreview();
+                hideError();
+            }
+        }
+
+        // Event listeners
+        const amountInput = document.getElementById('amountInput');
+        const mobileAmountInput = document.getElementById('mobileAmountInput');
+
+        if (amountInput) {
+            amountInput.addEventListener('input', () => {
+                updateAddButton();
+                updateTransactionPreview();
+            });
+            amountInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter' && !document.getElementById('addBtn').disabled) {
+                    addTransaction();
+                }
+            });
+        }
+
+        if (mobileAmountInput) {
+            mobileAmountInput.addEventListener('input', () => {
+                updateAddButton();
+                updateTransactionPreview();
+            });
+            mobileAmountInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter' && !document.getElementById('mobileAddBtn').disabled) {
+                    addTransactionMobile();
+                }
+            });
+        }
+
+        // Initialize on load
+        init();
+    </script>
+</body>
+</html>
